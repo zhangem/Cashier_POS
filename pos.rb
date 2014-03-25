@@ -115,34 +115,40 @@ def new_purchase
   end
   input = gets.chomp.to_i
   cashier_id = Cashier.find(input)
-  new_purchase_item_id(cashier_id)
+  total_price = []
+  new_purchase_item_id(cashier_id, total_price)
 end
 
-def new_purchase_item_id(cashier_id)
+def new_purchase_item_id(cashier_id, total_price)
   puts "Enter the id of the item being sold"
-  Inventories.all.order(:id).each do |inventory|
+  Inventories.all.each do |inventory|
     puts "#{inventory.id}. #{inventory.name}"
   end
     input = gets.chomp.to_i
     inventory_id = Inventories.find(input)
     puts "How many of the item is being sold?"
     item_quanity = gets.chomp.to_i
-    inventory_count(cashier_id, inventory_id, item_quanity)
+    prices = []
+    prices << item_quanity.to_f * inventory_id.price.to_f
+    inventory_count(cashier_id, inventory_id, item_quanity, prices, total_price)
 end
 
-def inventory_count(cashier_id, inventory_id, item_quanity)
-
+def inventory_count(cashier_id, inventory_id, item_quanity, prices, total_price)
+  total_price << prices
   puts cashier_id.name + " " + inventory_id.name
   new_quanity = inventory_id.quanity - item_quanity
   inventory_id.update({:quanity => new_quanity})
-  puts inventory_id.quanity
+  puts "#{new_quanity} #{inventory_id.name} remaining in inventory."
   puts "Would you like to purchase another item? 'y' or 'n'"
   input = gets.chomp
   case input
   when 'y'
-    new_purchase_item_id
+    new_purchase_item_id(cashier_id, total_price)
   when 'n'
-    calculate
+
+
+    puts "Total prices is " + total_price.flatten.inject(:+)
+
   else
     puts "That is not a valid option"
   end
