@@ -1,6 +1,8 @@
 require 'active_record'
 require './lib/cashier'
 require './lib/purchase'
+require './lib/order'
+require './lib/inventories'
 
 
 database_configurations = YAML::load(File.open('./db/config.yml'))
@@ -9,23 +11,83 @@ ActiveRecord::Base.establish_connection(development_configuration)
 
 def welcome
   puts "Welcome to the pos system"
-  main
+  main_menu
 end
 
-def main
-  puts "Press 'c' to go to the cashiers menu"
-  puts "Press 'p' to go to the purchases menu"
-  puts "Press 'x' to leave the system"
+def main_menu
+  puts "Press 'm' to go to the manager menu"
+  puts "Press 'e' to go to the employee menu"
+  puts "Press 'x' to exit"
   input = gets.chomp
   case input
-  when 'c'
-    cashiers
-  when 'p'
-    purchases
+  when 'm'
+    manager
+  when 'e'
+    employee_menu
   when 'x'
     puts "Goodbye!"
   else
-    puts 'That is not a valid option'
+    puts "That is not a valid option"
+  end
+end
+
+def manager
+  puts "Press 'o' to order new inventory"
+  puts "Press 'v' to view current inventory"
+  puts "Press 'a' to add a cashier"
+  puts "Press 'l' to list current cashiers"
+  puts "Press 'b' to go back to main menu"
+  input = gets.chomp
+  case input
+  when 'o'
+    order
+  when 'v'
+    current_inventory
+  when 'a'
+    add_cashier
+  when 'l'
+    view_cashiers
+  when 'b'
+    main_menu
+  else
+    puts "That is not a valid option"
+  end
+end
+
+def order
+  puts "Enter the item you wish to order"
+  item_name = gets.chomp
+  puts "Enter the quanity of #{item_name}"
+  item_quanity = gets.chomp.to_i
+  puts "Enter the price you wish to sell at"
+  item_price = gets.chomp.to_f
+  Inventories.create({:name => item_name, :price => item_price, :quanity => item_quanity})
+  puts "Your order has been updated"
+  manager
+end
+
+def current_inventory
+  puts "Here is a list of everything in your inventory"
+  Inventories.all.each { |inventory| puts inventory.name + ": quanity:" + inventory.quanity.to_s + " price:" + inventory.price.to_s}
+  manager
+  end
+
+
+
+def employee_menu
+  puts "Press 't' to make a new transaction"
+  puts "Press 'r' to see receipts"
+  puts "Press 'b' to go back"
+  input = gets.chomp
+  case input
+  when 't'
+    new_purchase
+  when 'r'
+    receipts
+  when 'b'
+    main_menu
+  else
+    puts "That is not a valid option"
   end
 end
 
@@ -40,27 +102,52 @@ def purchases
   when 'l'
     list_purchases
   when 'x'
-    puts "Goodby!"
+    puts "Goodbye!"
   else
     puts "That is not a valid option"
   end
 end
 
 def new_purchase
-  Cashier.all.each_with_index do |cashier, index| puts "#{index+1}. #{cashier.name}"
-  end
   puts "Enter the cashier id:"
+  Cashier.all.each_with_index do |cashier, index|
+    puts "#{index+1}. #{cashier.name}"
+  end
   input = gets.chomp.to_i
-  cashier_id = Cashier.all[input-1].id
-  puts "Enter item name"
-  new_item = gets.chomp
-  puts "Enter price"
-  new_item_price = gets.chomp.to_f
-  new_purchase = Purchase.new({:name => new_item, :price => new_item_price, :cashier_id => cashier_id})
-  new_purchase.save
-  puts "#{new_item} has been purchased for $#{new_item_price}"
-  main
+  cashier_id = Cashier.find(input)
+  new_purchase_item_id(cashier_id)
 end
+
+def new_purchase_item_id(cashier_id)
+  puts "Enter the id of the item being sold"
+  Inventories.all.order(:id).each do |inventory|
+    puts "#{inventory.id}. #{inventory.name}"
+  end
+    input = gets.chomp.to_i
+    inventory_id = Inventories.find(input)
+    puts "How many of the item is being sold?"
+    item_quanity = gets.chomp.to_i
+    inventory_count(cashier_id, inventory_id, item_quanity)
+end
+
+def inventory_count(cashier_id, inventory_id, item_quanity)
+
+  puts cashier_id.name + " " + inventory_id.name
+  new_quanity = inventory_id.quanity - item_quanity
+  inventory_id.update({:quanity => new_quanity})
+  puts inventory_id.quanity
+  puts "Would you like to purchase another item? 'y' or 'n'"
+  input = gets.chomp
+  case input
+  when 'y'
+    new_purchase_item_id
+  when 'n'
+    calculate
+  else
+    puts "That is not a valid option"
+  end
+end
+
 
 def list_purchases
   puts "Select a purchase to view its cashier"
@@ -72,6 +159,7 @@ def list_purchases
   puts selected_cashier_id.name + ": " + selected_cashier_id.cashier.name
   main
 end
+
 def cashiers
   puts "Press 'a' to add a cashier"
   puts "Press 'v' to view cashiers"
@@ -98,33 +186,14 @@ def add_cashier
   new_cashier = Cashier.new({:name => cashier_name})
   new_cashier.save
   puts "'#{cashier_name}' has been added to the system."
-  puts "'Would you like to go back to the main menu? 'y' or 'n'"
-  input = gets.chomp
-  case input
-  when 'y'
-    main
-  when 'n'
-    puts 'Goodbye!'
-  else
-    puts "That is not a valid option."
-  end
+  manager
 end
 
 def view_cashiers
   puts "Here are all the cashiers in the system:"
   Cashier.all.each_with_index do |cashier, index| puts "#{index +1}. #{cashier.name}"
   end
-  puts "\n\n"
-  puts "Would you like to go back to the main menu? 'y' 'n'"
-  input = gets.chomp
-  case input
-  when 'y'
-    main
-  when 'n'
-    puts "Goodbye"
-  else
-    puts "That is not a valid entry"
-  end
+  manager
 end
 
 
